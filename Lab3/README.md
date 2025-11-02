@@ -1,5 +1,6 @@
 # Lab3
 
+belosludtzev.vanya@yandex.ru
 
 ## Цель работы
 
