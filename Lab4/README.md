@@ -1,78 +1,521 @@
-# Lab4
+# Исследование метаданных DNS трафика
 
 belosludtzev.vanya@yandex.ru
 
 ## Цель работы
 
-1.  Изучить возможности технологии Yandex Query для анализа
-    структурированных наборов данных
-2.  Получить навыки построения аналитического пайплайна для анализа
-    данных с помощью сервисов Yandex Cloud
-3.  Закрепить практические навыки использования SQL для анализа данных
-    сетевой активности в сегментированной корпоративной сети
+1.  Зекрепить практические навыки использования языка программирования R
+    для обработки данных
+2.  Закрепить знания основных функций обработки данных экосистемы
+    tidyverse языка R
+3.  Закрепить навыки исследования метаданных DNS трафика
 
 ## Исходные данные
 
-1.  Windows 11
-2.  Rstudio
-3.  Github
-4.  Yandex Cloud
-5.  Yandex Query
+1.  Программное обеспечение ОС Windows 11 Pro
+2.  RStudio
+3.  Интерпретатор языка R 4.5.1
 
-## План выполнения работы
+## План
 
-1.  Проверить доступность данных в Yandex Object Storage
-2.  Подключить бакет как источник данных для Yandex Query
-3.  Выполнить аналитические задания
+1.  Импортируйте данные DNS –
+    https://storage.yandexcloud.net/dataset.ctfsec/dns.zip Данные были
+    собраны с помощью сетевого анализатора zeek
+2.  Добавьте пропущенные данные о структуре данных (назначении столбцов)
+3.  Преобразуйте данные в столбцах в нужный формат,просмотрите общую
+    структуру данных с помощью функции glimpse()
+4.  Сколько участников информационного обмена всети Доброй Организации?
+5.  Какое соотношение участников обмена внутрисети и участников
+    обращений к внешним ресурсам?
+6.  Найдите топ-10 участников сети, проявляющих наибольшую сетевую
+    активность.
+7.  Найдите топ-10 доменов, к которым обращаются пользователи сети и
+    соответственное количество обращений
+8.  Опеределите базовые статистические характеристики (функция summary()
+    ) интервала времени между последовательными обращениями к топ-10
+    доменам.
+9.  Часто вредоносное программное обеспечение использует DNS канал в
+    качестве канала управления, периодически отправляя запросы на
+    подконтрольный злоумышленникам DNS сервер. По периодическим запросам
+    на один и тот же домен можно выявить скрытый DNS канал. Есть ли
+    такие IP адреса в исследуемом датасете?
+10. Определите местоположение (страну, город) и организацию-провайдера
+    для топ-10 доменов. Для этого можно использовать сторонние
+    сервисы,например http://ip-api.com (API-эндпоинт –
+    http://ip-api.com/json).
 
-## Содержание Работы
+## Шаги:
 
-## Шаг 1. Проверить доступность данных в Yandex Object Storage
+``` r
+options(repos = c(CRAN = "https://mirror.truenetwork.ru/CRAN/"))
+install.packages("readr")
+```
 
-![](https://github.com/KartaviiBro/SecurityThreats/blob/main/Lab4/img/1.png)
+    Устанавливаю пакет в 'D:/Rlib'
 
-## Шаг 2. Подключить бакет как источник данных для Yandex Query
+    пакет 'readr' успешно распакован, MD5-суммы проверены
 
-1.  Создать соединение для бакета в S3 хранилище
+    Warning: не могу удалить прежнюю установку пакета 'readr'
 
-![](https://github.com/KartaviiBro/SecurityThreats/blob/main/Lab4/img/2.png)
+    Warning in file.copy(savedcopy, lib, recursive = TRUE): проблема с копированием
+    D:\Rlib\00LOCK\readr\libs\x64\readr.dll в D:\Rlib\readr\libs\x64\readr.dll:
+    Permission denied
 
-1.  Настройка привязки данных
+    Warning: восстановлен 'readr'
 
-![](https://github.com/KartaviiBro/SecurityThreats/blob/main/Lab4/img/3.png)
 
-1.  Проверка корректности данных с помошью запроса
+    Скачанные бинарные пакеты находятся в
+        D:\Rtemp\RtmpGmSgb7\downloaded_packages
 
-![](https://github.com/KartaviiBro/SecurityThreats/blob/main/Lab4/img/4.png)
+``` r
+install.packages("dplyr")
+```
 
-## Шаг 3. Выполнить аналитические задания
+    Устанавливаю пакет в 'D:/Rlib'
+    (потому что 'lib' не определено)
 
-1.  Известно, что IP адреса внутренней сети начинаются с октетов,
-    принадлежащих интервалу \[12-14\]. Определите количество хостов
-    внутренней сети, представленных в датасете.
+    пакет 'dplyr' успешно распакован, MD5-суммы проверены
 
-![](https://github.com/KartaviiBro/SecurityThreats/blob/main/Lab4/img/5.png)
+    Warning: не могу удалить прежнюю установку пакета 'dplyr'
 
-1.  Определите суммарный объем исходящего трафика
+    Warning in file.copy(savedcopy, lib, recursive = TRUE): проблема с копированием
+    D:\Rlib\00LOCK\dplyr\libs\x64\dplyr.dll в D:\Rlib\dplyr\libs\x64\dplyr.dll:
+    Permission denied
 
-![](https://github.com/KartaviiBro/SecurityThreats/blob/main/Lab4/img/6.png)
+    Warning: восстановлен 'dplyr'
 
-1.  Определите суммарный объем входящего трафика
 
-![](https://github.com/KartaviiBro/SecurityThreats/blob/main/Lab4/img/7.png)
+    Скачанные бинарные пакеты находятся в
+        D:\Rtemp\RtmpGmSgb7\downloaded_packages
+
+``` r
+install.packages("stringr")
+```
+
+    Устанавливаю пакет в 'D:/Rlib'
+    (потому что 'lib' не определено)
+
+    пакет 'stringr' успешно распакован, MD5-суммы проверены
+
+    Скачанные бинарные пакеты находятся в
+        D:\Rtemp\RtmpGmSgb7\downloaded_packages
+
+``` r
+install.packages("httr")
+```
+
+    Устанавливаю пакет в 'D:/Rlib'
+    (потому что 'lib' не определено)
+
+    пакет 'httr' успешно распакован, MD5-суммы проверены
+
+    Скачанные бинарные пакеты находятся в
+        D:\Rtemp\RtmpGmSgb7\downloaded_packages
+
+``` r
+install.packages("jsonlite")
+```
+
+    Устанавливаю пакет в 'D:/Rlib'
+
+    пакет 'jsonlite' успешно распакован, MD5-суммы проверены
+
+    Warning: не могу удалить прежнюю установку пакета 'jsonlite'
+
+    Warning in file.copy(savedcopy, lib, recursive = TRUE): проблема с копированием
+    D:\Rlib\00LOCK\jsonlite\libs\x64\jsonlite.dll в
+    D:\Rlib\jsonlite\libs\x64\jsonlite.dll: Permission denied
+
+    Warning: восстановлен 'jsonlite'
+
+
+    Скачанные бинарные пакеты находятся в
+        D:\Rtemp\RtmpGmSgb7\downloaded_packages
+
+``` r
+library(httr)
+library(jsonlite)
+library(readr)
+library(dplyr)
+```
+
+
+    Присоединяю пакет: 'dplyr'
+
+    Следующие объекты скрыты от 'package:stats':
+
+        filter, lag
+
+    Следующие объекты скрыты от 'package:base':
+
+        intersect, setdiff, setequal, union
+
+``` r
+library(stringr)
+library(knitr)
+temp_dir <- tempdir()
+download.file(
+  url = "https://storage.yandexcloud.net/dataset.ctfsec/dns.zip",
+  destfile = file.path(temp_dir, "dns.zip"),
+  mode = "wb"
+)
+unzip(
+  zipfile = file.path(temp_dir, "dns.zip"),
+  exdir = temp_dir
+)
+log_files <- list.files(temp_dir, pattern = "\\.log$", full.names = TRUE)
+```
+
+``` r
+# Вектор с названиями столбцов на основе документации Zeek
+column_names <- c(
+  "timestamp", "uid", "source_ip", "source_port", "destination_ip", 
+  "destination_port", "protocol", "transaction_id", "query", "qclass", 
+  "qclass_name", "qtype", "qtype_name", "rcode", "rcode_name", 
+  "AA", "TC", "RD", "RA", "Z", "answers", "TTLS", "rejected"
+)
+dns_data <- invisible(read_delim(
+  log_files[1],
+  delim = "\t",
+  col_names = column_names,
+  comment = "#",
+  na = c("", "NA", "-"),
+  trim_ws = TRUE,
+  show_col_types = FALSE
+)) %>% as_tibble()
+head(dns_data,10)
+```
+
+    # A tibble: 10 × 23
+         timestamp uid         source_ip source_port destination_ip destination_port
+             <dbl> <chr>       <chr>           <dbl> <chr>                     <dbl>
+     1 1331901006. CWGtK431H9… 192.168.…       45658 192.168.27.203              137
+     2 1331901015. C36a282Jlj… 192.168.…         137 192.168.202.2…              137
+     3 1331901016. C36a282Jlj… 192.168.…         137 192.168.202.2…              137
+     4 1331901017. C36a282Jlj… 192.168.…         137 192.168.202.2…              137
+     5 1331901006. C36a282Jlj… 192.168.…         137 192.168.202.2…              137
+     6 1331901007. C36a282Jlj… 192.168.…         137 192.168.202.2…              137
+     7 1331901007. C36a282Jlj… 192.168.…         137 192.168.202.2…              137
+     8 1331901006. ClEZCt3GLk… 192.168.…         137 192.168.202.2…              137
+     9 1331901007. ClEZCt3GLk… 192.168.…         137 192.168.202.2…              137
+    10 1331901008. ClEZCt3GLk… 192.168.…         137 192.168.202.2…              137
+    # ℹ 17 more variables: protocol <chr>, transaction_id <dbl>, query <chr>,
+    #   qclass <dbl>, qclass_name <chr>, qtype <dbl>, qtype_name <chr>,
+    #   rcode <dbl>, rcode_name <chr>, AA <lgl>, TC <lgl>, RD <lgl>, RA <lgl>,
+    #   Z <dbl>, answers <chr>, TTLS <chr>, rejected <lgl>
+
+``` r
+dns_data_clean <- dns_data %>%
+  mutate(
+    timestamp = as.POSIXct(timestamp, origin = "1970-01-01"),
+    source_port = as.numeric(source_port),
+    destination_port = as.numeric(destination_port),
+    transaction_id = as.numeric(transaction_id),
+    qclass = as.numeric(qclass),
+    qtype = as.numeric(qtype),
+    rcode = as.numeric(rcode),
+  ) %>% as_tibble()
+head(dns_data_clean,10)
+```
+
+    # A tibble: 10 × 23
+       timestamp           uid                source_ip   source_port destination_ip
+       <dttm>              <chr>              <chr>             <dbl> <chr>         
+     1 2012-03-16 16:30:05 CWGtK431H9XuaTN4fi 192.168.20…       45658 192.168.27.203
+     2 2012-03-16 16:30:15 C36a282Jljz7BsbGH  192.168.20…         137 192.168.202.2…
+     3 2012-03-16 16:30:15 C36a282Jljz7BsbGH  192.168.20…         137 192.168.202.2…
+     4 2012-03-16 16:30:16 C36a282Jljz7BsbGH  192.168.20…         137 192.168.202.2…
+     5 2012-03-16 16:30:05 C36a282Jljz7BsbGH  192.168.20…         137 192.168.202.2…
+     6 2012-03-16 16:30:06 C36a282Jljz7BsbGH  192.168.20…         137 192.168.202.2…
+     7 2012-03-16 16:30:07 C36a282Jljz7BsbGH  192.168.20…         137 192.168.202.2…
+     8 2012-03-16 16:30:06 ClEZCt3GLkJdtGGmAa 192.168.20…         137 192.168.202.2…
+     9 2012-03-16 16:30:07 ClEZCt3GLkJdtGGmAa 192.168.20…         137 192.168.202.2…
+    10 2012-03-16 16:30:07 ClEZCt3GLkJdtGGmAa 192.168.20…         137 192.168.202.2…
+    # ℹ 18 more variables: destination_port <dbl>, protocol <chr>,
+    #   transaction_id <dbl>, query <chr>, qclass <dbl>, qclass_name <chr>,
+    #   qtype <dbl>, qtype_name <chr>, rcode <dbl>, rcode_name <chr>, AA <lgl>,
+    #   TC <lgl>, RD <lgl>, RA <lgl>, Z <dbl>, answers <chr>, TTLS <chr>,
+    #   rejected <lgl>
+
+``` r
+# Задача 4: Сколько участников информационного обмена в сети Доброй Организации?
+unique_source_ips <- unique(dns_data_clean$source_ip)
+unique_destination_ips <- unique(dns_data_clean$destination_ip)
+all_ips<-unique(c(unique_source_ips, unique_destination_ips))
+length(all_ips)
+```
+
+    [1] 1359
+
+``` r
+# Задача 5: Соотношение участников обмена внутри сети и участников обращений к внешним ресурсам
+internal_ips <- all_ips[grepl("^(10\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[0-1])\\.)", all_ips)]
+external_ips <- all_ips[!grepl("^(10\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[0-1])\\.)", all_ips)]
+length(internal_ips) / length(external_ips)
+```
+
+    [1] 13.77174
+
+``` r
+# Задача 6: Найдите топ-10 участников сети, проявляющих наибольшую сетевую активность
+dns_data_clean%>%
+  group_by(source_ip)%>%
+  count(sort = TRUE) %>%
+  as_tibble() %>%
+  head(10)
+```
+
+    # A tibble: 10 × 2
+       source_ip           n
+       <chr>           <int>
+     1 10.10.117.210   75943
+     2 192.168.202.93  26522
+     3 192.168.202.103 18121
+     4 192.168.202.76  16978
+     5 192.168.202.97  16176
+     6 192.168.202.141 14967
+     7 10.10.117.209   14222
+     8 192.168.202.110 13372
+     9 192.168.203.63  12148
+    10 192.168.202.106 10784
+
+``` r
+# Задача 7:Найдите топ-10 доменов, к которым обращаются пользователи сети и соответственное количество обращений
+top_10_domains <- dns_data_clean%>%count(query, sort = TRUE) %>%
+  as_tibble() %>% head(10)
+top_10_domains
+```
+
+    # A tibble: 10 × 2
+       query                                                                       n
+       <chr>                                                                   <int>
+     1 "teredo.ipv6.microsoft.com"                                             39273
+     2 "tools.google.com"                                                      14057
+     3 "www.apple.com"                                                         13390
+     4 "time.apple.com"                                                        13109
+     5 "safebrowsing.clients.google.com"                                       11658
+     6 "*\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x… 10401
+     7 "WPAD"                                                                   9134
+     8 "44.206.168.192.in-addr.arpa"                                            7248
+     9 "HPE8AA67"                                                               6929
+    10 "ISATAP"                                                                 6569
+
+``` r
+# Задача 8: Статистические характеристики интервалов времени между обращениями к топ-10 доменам
+
+top_domains_data <- dns_data_clean[dns_data_clean$query %in% top_10_domains$query, ]
+top_domains_data <- top_domains_data[order(top_domains_data$query, top_domains_data$timestamp), ]
+results <- data.frame(
+  Domain = character(),
+  Min = numeric(),
+  Q1 = numeric(),
+  Median = numeric(),
+  Mean = numeric(),
+  Q3 = numeric(),
+  Max = numeric()
+)
+for(domain in top_10_domains$query) {
+  domain_data <- top_domains_data[top_domains_data$query == domain, ]
+  domain_data <- domain_data[!is.na(domain_data$timestamp), ]
+  
+  if(nrow(domain_data) > 1) {
+    time_diffs <- diff(as.numeric(domain_data$timestamp))
+    domain_stats <- summary(time_diffs)
+    results <- rbind(results, data.frame(
+      Domain = domain,
+      Min = as.numeric(domain_stats["Min."]),
+      Q1 = as.numeric(domain_stats["1st Qu."]),
+      Median = as.numeric(domain_stats["Median"]),
+      Mean = as.numeric(domain_stats["Mean"]),
+      Q3 = as.numeric(domain_stats["3rd Qu."]),
+      Max = as.numeric(domain_stats["Max."])
+    ))
+  }
+}
+results
+```
+
+                                                                        Domain Min
+    1                                                teredo.ipv6.microsoft.com   0
+    2                                                         tools.google.com   0
+    3                                                            www.apple.com   0
+    4                                                           time.apple.com   0
+    5                                          safebrowsing.clients.google.com   0
+    6  *\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00   0
+    7                                                                     WPAD   0
+    8                                              44.206.168.192.in-addr.arpa   0
+    9                                                                 HPE8AA67   0
+    10                                                                  ISATAP   0
+              Q1   Median      Mean      Q3      Max
+    1  0.0000000 0.000000  2.941409  0.5100 50387.76
+    2  0.0000000 0.000000  8.187012  1.0000 50364.83
+    3  0.0000000 1.000000  8.607446  3.0100 50963.63
+    4  0.3699999 1.760000  8.665050  4.7225 50924.28
+    5  0.0000000 1.000000 10.003054  2.0100 49952.32
+    6  0.1499999 0.500000 11.244317  1.5000 52723.50
+    7  0.7500000 0.750000 12.608225  1.1100 50049.11
+    8  2.0899999 4.000000 16.006259 20.0900 49679.81
+    9  0.7500000 0.750000 16.608906 25.4900 50044.43
+    10 0.7500000 0.759999 17.463671  1.0500 51997.79
+
+``` r
+# Задача 9: Поиск IP-адресов с периодическими запросами на один домен (из топ-10 доменов)
+top_domains <- top_10_domains$query
+periodic_analysis <- data.frame(
+  source_ip = character(),
+  domain = character(),
+  request_count = integer(),
+  avg_interval = numeric(),
+  std_dev = numeric(),
+  is_periodic = logical()
+)
+for(domain in top_domains) {
+  domain_data <- dns_data_clean[dns_data_clean$query == domain, ]
+  domain_data <- domain_data[!is.na(domain_data$timestamp), ]
+  unique_ips <- unique(domain_data$source_ip)
+  for(ip in unique_ips) {
+    ip_data <- domain_data[domain_data$source_ip == ip, ]
+    if(nrow(ip_data) >= 5) {
+      ip_data <- ip_data[order(ip_data$timestamp), ]
+      timestamps <- as.numeric(ip_data$timestamp)
+      intervals <- diff(timestamps)
+      avg_interval <- mean(intervals)
+      std_dev <- sd(intervals)
+      # Критерий периодичности: низкое стандартное отклонение относительно среднего
+      is_periodic <- std_dev < avg_interval * 0.5
+      periodic_analysis <- rbind(periodic_analysis, data.frame(
+        source_ip = ip,
+        domain = domain,
+        request_count = nrow(ip_data),
+        avg_interval = avg_interval,
+        std_dev = std_dev,
+        is_periodic = is_periodic
+      ))
+    }
+  }
+}
+suspicious_ips <- periodic_analysis[periodic_analysis$is_periodic == TRUE, ] %>%
+  as_tibble()
+suspicious_ips
+```
+
+    # A tibble: 9 × 6
+      source_ip       domain          request_count avg_interval std_dev is_periodic
+      <chr>           <chr>                   <int>        <dbl>   <dbl> <lgl>      
+    1 192.168.25.25   "safebrowsing.…             8       16.2   0.520   TRUE       
+    2 192.168.24.25   "safebrowsing.…             8       16.2   0.165   TRUE       
+    3 192.168.21.25   "safebrowsing.…             7       14.3   4.60    TRUE       
+    4 192.168.25.25   "*\\x00\\x00\\…             9        1.51  0.00641 TRUE       
+    5 192.168.202.120 "WPAD"                     14        0.656 0.296   TRUE       
+    6 192.168.202.49  "ISATAP"                   90        0.767 0.121   TRUE       
+    7 192.168.0.3     "ISATAP"                  108        0.874 0.313   TRUE       
+    8 192.168.202.146 "ISATAP"                    6        0.754 0.0270  TRUE       
+    9 192.168.202.147 "ISATAP"                   33        0.862 0.147   TRUE       
+
+``` r
+# Задача 9: Определите местоположение (страну, город) и организацию-провайдера для топ-10 доменов.
+get_geo_info <- function(ip) {
+  if (is.na(ip) || ip == "") {
+     return(tibble(
+      ip_address = NA_character_,
+      country = "IP не определён",
+      city = "IP не определён",
+      isp = "IP не определён"
+    ))
+  }
+  if (grepl("^(10\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[0-1])\\.)", ip)) {
+    return(tibble(
+      ip_address = ip,
+      country = "Частный IP",
+      city = "Частный IP",
+      isp = "Частный IP"
+    ))
+  }
+  url <- paste0("http://ip-api.com/json/", ip)
+  response <- GET(url)
+  if (status_code(response) == 200) {
+    data <- fromJSON(content(response, "text"))
+    if (data$status == "success") {
+      return(tibble(
+        ip_address = ip,
+        country = data$country,
+        city = data$city,
+        isp = data$isp
+      ))
+    } else {
+      return(tibble(
+        ip_address = ip,
+        country = paste("API ошибка:", data$status),
+        city = paste("API ошибка:", data$status),
+        isp = paste("API ошибка:", data$status)
+      ))
+    }
+  } else {
+    return(tibble(
+      ip_address = ip,
+      country = "Ошибка API",
+      city = "Ошибка API",
+      isp = "Ошибка API"
+    ))
+  }
+}
+
+dns_with_dest_ip <- dns_data_clean %>%
+  filter(!is.na(destination_ip)) %>%
+  select(query, destination_ip) %>%
+  distinct()
+relevant_dns <- dns_with_dest_ip %>%
+  filter(query %in% top_10_domains$query)
+geo_results_df <- tibble(
+  ip_address = character(),
+  country = character(),
+  city = character(),
+  isp = character()
+)
+#Запросы к API
+unique_ips_to_check <- unique(relevant_dns$destination_ip)
+for (ip in unique_ips_to_check) {
+  geo_info_row <- get_geo_info(ip)
+  geo_results_df <- bind_rows(geo_results_df, geo_info_row)
+}
+domain_geo_info_final <- relevant_dns %>%
+  left_join(geo_results_df, by = c("destination_ip" = "ip_address")) %>%
+  rename(ip_address = destination_ip) %>%
+  select(domain = query, ip_address, country, city, isp)
+domain_order_factor <- factor(domain_geo_info_final$domain, levels = top_10_domains$query)
+domain_geo_info_final_sorted <- domain_geo_info_final %>%
+  mutate(domain_order = domain_order_factor) %>%
+  arrange(domain_order) %>%
+  select(-domain_order)
+
+# Вывод результата, группируя по домену
+print(domain_geo_info_final_sorted)
+```
+
+    # A tibble: 1,213 × 5
+       domain                    ip_address       country       city       isp      
+       <chr>                     <chr>            <chr>         <chr>      <chr>    
+     1 teredo.ipv6.microsoft.com fec0:0:0:ffff::2 Switzerland   Morat      Internet…
+     2 teredo.ipv6.microsoft.com fec0:0:0:ffff::1 Switzerland   Morat      Internet…
+     3 teredo.ipv6.microsoft.com fec0:0:0:ffff::3 Switzerland   Morat      Internet…
+     4 teredo.ipv6.microsoft.com 192.168.207.4    Частный IP    Частный IP Частный …
+     5 teredo.ipv6.microsoft.com 192.168.0.1      Частный IP    Частный IP Частный …
+     6 tools.google.com          192.168.207.4    Частный IP    Частный IP Частный …
+     7 tools.google.com          192.168.206.44   Частный IP    Частный IP Частный …
+     8 tools.google.com          156.154.70.22    United States New York   Neustar …
+     9 tools.google.com          8.26.56.26       United States Clifton    Flexenti…
+    10 tools.google.com          68.87.75.198     United States Pittsburgh Comcast …
+    # ℹ 1,203 more rows
 
 ## Оценка результата
 
-В результате практической работы было созданое соединение для работы с
-датасетом и выполнены аналитические задания
+В рамках практческой работы была исследована подозрительная сетевая
+активность во внутренней сети Доброй Организации. Были восстановлены
+недостающие метаданные и подготовлены ответы на вопросы.
 
 ## Вывод
 
-В результате выполнения практической работы были освоены инструменты
-работы с Yandex Query
-
-``` r
-print('Работа выполнена')
-```
-
-    [1] "Работа выполнена"
+Таким мобразом в ходе работы мы зекрепили практические навыки
+использования языка программирования R для обработки данных, знания
+основных функций обработки данных экосистемы tidyverse языка R и навыки
+исследования метаданных DNS трафика.

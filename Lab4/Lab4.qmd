@@ -1,84 +1,296 @@
 ---
-format:
+title: "Исследование метаданных DNS трафика"
+subtitle: "Отчет по практике 4"
+author: "belosludtzev.vanya@yandex.ru"
+format: 
   md:
-    output-file: "README.md"
+    output-file: README.md
 ---
-
-# Lab4
 
 ## Цель работы
 
-1) Изучить возможности технологии Yandex Query для анализа структурированных наборов данных
-2) Получить навыки построения аналитического пайплайна для анализа данных с помощью сервисов Yandex Cloud
-3) Закрепить практические навыки использования SQL для анализа данных сетевой активности в сегментированной корпоративной сети
+1.  Зекрепить практические навыки использования языка программирования R для обработки данных
+2.  Закрепить знания основных функций обработки данных экосистемы tidyverse языка R
+3.  Закрепить навыки исследования метаданных DNS трафика
 
 ## Исходные данные
 
-1)  Windows 11
-2)  Rstudio 
-3)  Github
-4)  Yandex Cloud
-5)  Yandex Query
+1.  Программное обеспечение ОС Windows 11 Pro
+2.  RStudio
+3.  Интерпретатор языка R 4.5.1
 
-## План выполнения работы
+## План
 
-1)  Проверить доступность данных в Yandex Object Storage
-2)  Подключить бакет как источник данных для Yandex Query
-3)  Выполнить аналитические задания
+1. Импортируйте данные DNS – https://storage.yandexcloud.net/dataset.ctfsec/dns.zip
+Данные были собраны с помощью сетевого анализатора zeek
+2. Добавьте пропущенные данные о структуре данных (назначении столбцов)
+3. Преобразуйте данные в столбцах в нужный формат,просмотрите общую структуру данных с помощью функции glimpse()
+4. Сколько участников информационного обмена всети Доброй Организации?
+5. Какое соотношение участников обмена внутрисети и участников обращений к внешним ресурсам?
+6. Найдите топ-10 участников сети, проявляющих наибольшую сетевую активность.
+7. Найдите топ-10 доменов, к которым обращаются пользователи сети и соответственное количество обращений
+8. Опеределите базовые статистические характеристики (функция summary() ) интервала времени между последовательными обращениями к топ-10 доменам.
+9. Часто вредоносное программное обеспечение использует DNS канал в качестве канала управления, периодически отправляя запросы на подконтрольный злоумышленникам DNS сервер. По периодическим запросам на один и тот же домен можно выявить скрытый DNS канал. Есть ли такие IP адреса в исследуемом датасете?
+10. Определите местоположение (страну, город) и организацию-провайдера для топ-10 доменов. Для этого можно использовать сторонние сервисы,например http://ip-api.com (API-эндпоинт –
+http://ip-api.com/json).
 
-## Содержание Работы
+## Шаги:
 
-## Шаг 1. Проверить доступность данных в Yandex Object Storage
+```{r}
+options(repos = c(CRAN = "https://mirror.truenetwork.ru/CRAN/"))
+install.packages("readr")
+install.packages("dplyr")
+install.packages("stringr")
+install.packages("httr")
+install.packages("jsonlite")
+library(httr)
+library(jsonlite)
+library(readr)
+library(dplyr)
+library(stringr)
+library(knitr)
+temp_dir <- tempdir()
+download.file(
+  url = "https://storage.yandexcloud.net/dataset.ctfsec/dns.zip",
+  destfile = file.path(temp_dir, "dns.zip"),
+  mode = "wb"
+)
+unzip(
+  zipfile = file.path(temp_dir, "dns.zip"),
+  exdir = temp_dir
+)
+log_files <- list.files(temp_dir, pattern = "\\.log$", full.names = TRUE)
+```
 
-![](https://github.com/KartaviiBro/SecurityThreats/blob/main/Lab4/img/1.png)
+```{r}
+# Вектор с названиями столбцов на основе документации Zeek
+column_names <- c(
+  "timestamp", "uid", "source_ip", "source_port", "destination_ip", 
+  "destination_port", "protocol", "transaction_id", "query", "qclass", 
+  "qclass_name", "qtype", "qtype_name", "rcode", "rcode_name", 
+  "AA", "TC", "RD", "RA", "Z", "answers", "TTLS", "rejected"
+)
+dns_data <- invisible(read_delim(
+  log_files[1],
+  delim = "\t",
+  col_names = column_names,
+  comment = "#",
+  na = c("", "NA", "-"),
+  trim_ws = TRUE,
+  show_col_types = FALSE
+)) %>% as_tibble()
+head(dns_data,10)
+```
 
-## Шаг 2. Подключить бакет как источник данных для Yandex Query
+```{r}
+dns_data_clean <- dns_data %>%
+  mutate(
+    timestamp = as.POSIXct(timestamp, origin = "1970-01-01"),
+    source_port = as.numeric(source_port),
+    destination_port = as.numeric(destination_port),
+    transaction_id = as.numeric(transaction_id),
+    qclass = as.numeric(qclass),
+    qtype = as.numeric(qtype),
+    rcode = as.numeric(rcode),
+  ) %>% as_tibble()
+head(dns_data_clean,10)
 
-1. Создать соединение для бакета в S3 хранилище
+```
 
-![](https://github.com/KartaviiBro/SecurityThreats/blob/main/Lab4/img/2.png)
+```{r}
+# Задача 4: Сколько участников информационного обмена в сети Доброй Организации?
+unique_source_ips <- unique(dns_data_clean$source_ip)
+unique_destination_ips <- unique(dns_data_clean$destination_ip)
+all_ips<-unique(c(unique_source_ips, unique_destination_ips))
+length(all_ips)
+```
 
+```{r}
+# Задача 5: Соотношение участников обмена внутри сети и участников обращений к внешним ресурсам
+internal_ips <- all_ips[grepl("^(10\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[0-1])\\.)", all_ips)]
+external_ips <- all_ips[!grepl("^(10\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[0-1])\\.)", all_ips)]
+length(internal_ips) / length(external_ips)
 
-2. Настройка привязки данных
+```
 
-![](https://github.com/KartaviiBro/SecurityThreats/blob/main/Lab4/img/3.png)
+```{r}
+# Задача 6: Найдите топ-10 участников сети, проявляющих наибольшую сетевую активность
+dns_data_clean%>%
+  group_by(source_ip)%>%
+  count(sort = TRUE) %>%
+  as_tibble() %>%
+  head(10)
+```
 
-3. Проверка корректности данных с помошью запроса
+```{r}
+# Задача 7:Найдите топ-10 доменов, к которым обращаются пользователи сети и соответственное количество обращений
+top_10_domains <- dns_data_clean%>%count(query, sort = TRUE) %>%
+  as_tibble() %>% head(10)
+top_10_domains
+```
 
-![](https://github.com/KartaviiBro/SecurityThreats/blob/main/Lab4/img/4.png)
+```{r}
+# Задача 8: Статистические характеристики интервалов времени между обращениями к топ-10 доменам
 
+top_domains_data <- dns_data_clean[dns_data_clean$query %in% top_10_domains$query, ]
+top_domains_data <- top_domains_data[order(top_domains_data$query, top_domains_data$timestamp), ]
+results <- data.frame(
+  Domain = character(),
+  Min = numeric(),
+  Q1 = numeric(),
+  Median = numeric(),
+  Mean = numeric(),
+  Q3 = numeric(),
+  Max = numeric()
+)
+for(domain in top_10_domains$query) {
+  domain_data <- top_domains_data[top_domains_data$query == domain, ]
+  domain_data <- domain_data[!is.na(domain_data$timestamp), ]
+  
+  if(nrow(domain_data) > 1) {
+    time_diffs <- diff(as.numeric(domain_data$timestamp))
+    domain_stats <- summary(time_diffs)
+    results <- rbind(results, data.frame(
+      Domain = domain,
+      Min = as.numeric(domain_stats["Min."]),
+      Q1 = as.numeric(domain_stats["1st Qu."]),
+      Median = as.numeric(domain_stats["Median"]),
+      Mean = as.numeric(domain_stats["Mean"]),
+      Q3 = as.numeric(domain_stats["3rd Qu."]),
+      Max = as.numeric(domain_stats["Max."])
+    ))
+  }
+}
+results
+```
 
-## Шаг 3. Выполнить аналитические задания
+```{r}
+# Задача 9: Поиск IP-адресов с периодическими запросами на один домен (из топ-10 доменов)
+top_domains <- top_10_domains$query
+periodic_analysis <- data.frame(
+  source_ip = character(),
+  domain = character(),
+  request_count = integer(),
+  avg_interval = numeric(),
+  std_dev = numeric(),
+  is_periodic = logical()
+)
+for(domain in top_domains) {
+  domain_data <- dns_data_clean[dns_data_clean$query == domain, ]
+  domain_data <- domain_data[!is.na(domain_data$timestamp), ]
+  unique_ips <- unique(domain_data$source_ip)
+  for(ip in unique_ips) {
+    ip_data <- domain_data[domain_data$source_ip == ip, ]
+    if(nrow(ip_data) >= 5) {
+      ip_data <- ip_data[order(ip_data$timestamp), ]
+      timestamps <- as.numeric(ip_data$timestamp)
+      intervals <- diff(timestamps)
+      avg_interval <- mean(intervals)
+      std_dev <- sd(intervals)
+      # Критерий периодичности: низкое стандартное отклонение относительно среднего
+      is_periodic <- std_dev < avg_interval * 0.5
+      periodic_analysis <- rbind(periodic_analysis, data.frame(
+        source_ip = ip,
+        domain = domain,
+        request_count = nrow(ip_data),
+        avg_interval = avg_interval,
+        std_dev = std_dev,
+        is_periodic = is_periodic
+      ))
+    }
+  }
+}
+suspicious_ips <- periodic_analysis[periodic_analysis$is_periodic == TRUE, ] %>%
+  as_tibble()
+suspicious_ips
+```
 
-1. Известно, что IP адреса внутренней сети начинаются с октетов, принадлежащих интервалу [12-14]. Определите количество хостов внутренней сети, представленных в датасете.
+```{r}
+# Задача 9: Определите местоположение (страну, город) и организацию-провайдера для топ-10 доменов.
+get_geo_info <- function(ip) {
+  if (is.na(ip) || ip == "") {
+     return(tibble(
+      ip_address = NA_character_,
+      country = "IP не определён",
+      city = "IP не определён",
+      isp = "IP не определён"
+    ))
+  }
+  if (grepl("^(10\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[0-1])\\.)", ip)) {
+    return(tibble(
+      ip_address = ip,
+      country = "Частный IP",
+      city = "Частный IP",
+      isp = "Частный IP"
+    ))
+  }
+  url <- paste0("http://ip-api.com/json/", ip)
+  response <- GET(url)
+  if (status_code(response) == 200) {
+    data <- fromJSON(content(response, "text"))
+    if (data$status == "success") {
+      return(tibble(
+        ip_address = ip,
+        country = data$country,
+        city = data$city,
+        isp = data$isp
+      ))
+    } else {
+      return(tibble(
+        ip_address = ip,
+        country = paste("API ошибка:", data$status),
+        city = paste("API ошибка:", data$status),
+        isp = paste("API ошибка:", data$status)
+      ))
+    }
+  } else {
+    return(tibble(
+      ip_address = ip,
+      country = "Ошибка API",
+      city = "Ошибка API",
+      isp = "Ошибка API"
+    ))
+  }
+}
 
-![](https://github.com/KartaviiBro/SecurityThreats/blob/main/Lab4/img/5.png)
+dns_with_dest_ip <- dns_data_clean %>%
+  filter(!is.na(destination_ip)) %>%
+  select(query, destination_ip) %>%
+  distinct()
+relevant_dns <- dns_with_dest_ip %>%
+  filter(query %in% top_10_domains$query)
+geo_results_df <- tibble(
+  ip_address = character(),
+  country = character(),
+  city = character(),
+  isp = character()
+)
+#Запросы к API
+unique_ips_to_check <- unique(relevant_dns$destination_ip)
+for (ip in unique_ips_to_check) {
+  geo_info_row <- get_geo_info(ip)
+  geo_results_df <- bind_rows(geo_results_df, geo_info_row)
+}
+domain_geo_info_final <- relevant_dns %>%
+  left_join(geo_results_df, by = c("destination_ip" = "ip_address")) %>%
+  rename(ip_address = destination_ip) %>%
+  select(domain = query, ip_address, country, city, isp)
+domain_order_factor <- factor(domain_geo_info_final$domain, levels = top_10_domains$query)
+domain_geo_info_final_sorted <- domain_geo_info_final %>%
+  mutate(domain_order = domain_order_factor) %>%
+  arrange(domain_order) %>%
+  select(-domain_order)
 
-2. Определите суммарный объем исходящего трафика
-
-![](https://github.com/KartaviiBro/SecurityThreats/blob/main/Lab4/img/6.png)
-
-
-3. Определите суммарный объем входящего трафика
-
-![](https://github.com/KartaviiBro/SecurityThreats/blob/main/Lab4/img/7.png)
-
+# Вывод результата, группируя по домену
+print(domain_geo_info_final_sorted)
+```
 
 ## Оценка результата
 
-В результате практической работы было созданое соединение для работы с датасетом и выполнены аналитические задания
+В рамках практческой работы была исследована подозрительная сетевая активность во внутренней сети Доброй
+Организации. Были восстановлены недостающие метаданные и подготовлены ответы на вопросы.
 
 ## Вывод
 
-В результате выполнения практической работы были освоены инструменты работы с Yandex Query
-
-```{r}
-print('Работа выполнена')
-```
-
-
-
-
-
-
+Таким мобразом в ходе работы мы зекрепили практические навыки использования языка программирования R для обработки данных, знания основных функций обработки данных экосистемы tidyverse языка R и навыки исследования метаданных DNS трафика
 
