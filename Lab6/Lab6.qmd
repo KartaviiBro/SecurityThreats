@@ -1,0 +1,258 @@
+---
+title: "Исследование вредоносной активности в домене Windows"
+subtitle: "Отчет по практике 6"
+author: "belosludtzev.vanya@yandex.ru"
+format: 
+  md:
+    output-file: README.md
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+## Цель работы
+
+1.  Закрепить навыки исследования данных журнала Windows Active
+    Directory
+2.  Изучить структуру журнала системы Windows Active Directory
+3.  Зекрепить практические навыки использования языка программирования R
+    для обработки данных
+4.  Закрепить знания основных функций обработки данных экосистемы
+    tidyverse языка R
+
+## Исходные данные
+
+1.  Программное обеспечение ОС Windows 11 Pro
+2.  RStudio
+3.  Интерпретатор языка R 4.5.1
+
+## План
+
+1.  Импортируйте данные в R. Датасет находится по адресу
+    https://storage.yandexcloud.net/iamcth-data/dataset.tar.gz.
+2.  Привести датасеты в вид “аккуратных данных”, преобразовать типы
+    столбцов в соответствии с типом данных
+3.  Просмотрите общую структуру данных с помощью функции glimpse()
+4.  Раскройте датафрейм избавившись от вложенных датафреймов
+5.  Минимизируйте количество колонок в датафрейме – уберите колоки с
+    единственным значением параметра.
+6.  Какое количество хостов представлено в данном датасете?
+7.  Подготовьте датафрейм с расшифровкой Windows Event_ID, приведите
+    типы данных к типу их значений.
+8.  Есть ли в логе события с высоким и средним уровнем значимости?
+    Сколько их?
+
+## Шаги:
+
+### Загрузка библиотек
+
+```{r}
+options(repos = c(CRAN = "https://mirror.truenetwork.ru/CRAN/"))
+install.packages("jsonlite")
+install.packages("dplyr")
+install.packages("tidyr")
+install.packages("xml2")
+install.packages("rvest")
+library(jsonlite)
+library(dplyr)
+library(tidyr)
+library(xml2)
+library(rvest)
+```
+
+### Импортируйте данные в R.
+
+```{r}
+dataset_url <- "https://storage.yandexcloud.net/iamcth-data/dataset.tar.gz"
+local_archive_name <- "dataset.tar.gz"
+if (!file.exists(local_archive_name)) {
+  download.file(url = dataset_url, destfile = local_archive_name, mode = "wb")
+}
+archive_contents <- untar(tarfile = local_archive_name, list = TRUE)
+json_file_name <- archive_contents[grep("\\.json$", archive_contents)]
+temp_json_dir <- tempdir()
+untar(tarfile = local_archive_name, files = json_file_name, exdir = temp_json_dir)
+json_file_path <- file.path(temp_json_dir, json_file_name)
+json_file_conn <- file(json_file_path, open = "r")
+raw_data <- stream_in(json_file_conn)
+close(json_file_conn)
+```
+
+### Привести датасеты в вид “аккуратных данных”, преобразовать типы столбцов в соответствии с типом данных
+
+```{r}
+is_datetime_char <- function(x) {
+  if (is.character(x) | is.factor(x)) {
+    x_char <- as.character(x)
+    non_na_sample <- x_char[!is.na(x_char)]
+    if (length(non_na_sample) > 0) {
+      try_result <- try(as.POSIXct(non_na_sample[1]), silent = TRUE)
+      return(inherits(try_result, "POSIXct"))
+    }
+  }
+  return(FALSE)
+}
+potential_datetime_cols <- sapply(raw_data, is_datetime_char)
+datetime_col_names <- names(raw_data)[potential_datetime_cols]
+if (length(datetime_col_names) > 0) {
+  for (col_name in datetime_col_names) {
+    raw_data[[col_name]] <- tryCatch(
+      as.POSIXct(raw_data[[col_name]]),
+      error = function(e) {
+        return(raw_data[[col_name]])
+      }
+    )
+  }
+} 
+is_numeric_char <- function(x) {
+  if (is.character(x) | is.factor(x)) {
+    x_char <- as.character(x)
+    suppressWarnings(all(!is.na(as.numeric(x_char[!is.na(x_char)]))))
+  } else {
+    FALSE
+  }
+}
+potential_numeric_cols <- sapply(raw_data, is_numeric_char)
+numeric_col_names <- names(raw_data)[potential_numeric_cols]
+if (length(numeric_col_names) > 0) {
+  raw_data <- raw_data %>%
+    mutate(
+      across(all_of(numeric_col_names), ~as.numeric(as.character(.x)))
+    )
+}
+is_logical_char <- function(x) {
+  if (is.character(x) | is.factor(x)) {
+    x_char <- tolower(as.character(x))
+    unique_vals <- unique(x_char[!is.na(x_char)])
+    logical_strings <- c("true", "false", "1", "0")
+    all_vals_logical <- length(unique_vals) > 0 && all(unique_vals %in% logical_strings)
+    has_true_false <- any(unique_vals == "true") && any(unique_vals == "false")
+    has_one_zero <- any(unique_vals == "1") && any(unique_vals == "0")
+    return(all_vals_logical && (has_true_false || has_one_zero))
+  } else {
+    FALSE
+  }
+}
+potential_logical_cols <- sapply(raw_data, is_logical_char)
+logical_col_names <- names(raw_data)[potential_logical_cols]
+if (length(logical_col_names) > 0) {
+  for (col_name in logical_col_names) {
+    char_vec <- as.character(raw_data[[col_name]])
+    logical_vec <- ifelse(tolower(char_vec) %in% c("true", "1"), TRUE,
+                          ifelse(tolower(char_vec) %in% c("false", "0"), FALSE, NA))
+    raw_data[[col_name]] <- logical_vec
+  }
+}
+```
+
+### Просмотрите общую структуру данных с помощью функции glimpse()
+
+```{r}
+glimpse(raw_data)
+```
+
+### Раскройте датафрейм избавившись от вложенных датафреймов
+
+```{r}
+list_cols_logical <- sapply(raw_data, is.list)
+list_col_names <- names(raw_data)[list_cols_logical]
+unnested_data <- raw_data %>%
+    unnest(
+      cols = all_of(list_col_names),
+      names_sep = "_",
+      keep_empty = TRUE
+      )
+list_cols_after_logical <- sapply(unnested_data, is.list)
+remaining_list_cols <- names(unnested_data)[list_cols_after_logical]
+if (length(remaining_list_cols) > 0) {
+  iteration_count <- 0
+  max_iterations <- 10
+  while (length(remaining_list_cols) > 0 & iteration_count < max_iterations) {
+    unnested_data <- unnested_data %>%
+      unnest(
+        cols = all_of(remaining_list_cols),
+        names_sep = "_",
+        keep_empty = TRUE
+      )
+    list_cols_after_logical <- sapply(unnested_data, is.list)
+    remaining_list_cols <- names(unnested_data)[list_cols_after_logical]
+    iteration_count <- iteration_count + 1
+  }
+}
+```
+
+### Минимизируйте количество колонок в датафрейме – уберите колоки с единственным значением параметра.
+
+```{r}
+is_constant_col <- function(col) {
+  unique_vals <- unique(col)
+  unique_vals_no_na <- unique_vals[!is.na(unique_vals)]
+  return(length(unique_vals_no_na) <= 1)
+}
+constant_cols_logical <- sapply(unnested_data, is_constant_col)
+constant_cols_names <- names(unnested_data)[constant_cols_logical]
+minimized_data <- unnested_data %>%
+  select(-all_of(constant_cols_names))
+glimpse(minimized_data)
+```
+
+### Какое количество хостов представлено в данном датасете?
+
+```{r}
+host_col_name <- "winlog_event_data_SourceHostname"
+num_unique_hosts <- n_distinct(minimized_data[[host_col_name]])
+num_unique_hosts
+```
+
+### Подготовьте датафрейм с расшифровкой Windows Event_ID, приведите типы данных к типу их значений.
+
+```{r}
+webpage_url <- "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/plan/appendix-l--events-to-monitor"
+webpage <- read_html(webpage_url)
+event_df_raw <- html_table(webpage)[[1]]
+event_df <- event_df_raw %>%
+  mutate(
+    `Current Windows Event ID` = as.numeric(`Current Windows Event ID`),
+    `Legacy Windows Event ID` = as.numeric(`Legacy Windows Event ID`),
+    `Potential criticality` = as.character(`Potential Criticality`),
+    `Event Summary` = as.character(`Event Summary`)
+  )
+head(event_df,10)
+```
+
+### Есть ли в логе события с высоким и средним уровнем значимости? Сколько их?
+
+```{r}
+potential_criticality_df<- minimized_data %>%
+  select(event_code) %>%
+  left_join(
+    event_df %>% select(`Current Windows Event ID`, `Potential Criticality`),
+    by = join_by(event_code == `Current Windows Event ID`)
+  )
+has_high <- ifelse(
+  is.na(potential_criticality_df$`Potential Criticality`),
+  FALSE,
+  grepl("High", potential_criticality_df$`Potential Criticality`, ignore.case = TRUE)
+)
+has_medium <- ifelse(
+  is.na(potential_criticality_df$`Potential Criticality`),
+  FALSE,
+  grepl("Мedium", potential_criticality_df$`Potential Criticality`, ignore.case = TRUE)
+)
+high_events_count_calc <- sum(has_high)
+cat("Событий Hight: ",high_events_count_calc, "\n")
+medium_events_count_calc <- sum(has_medium)
+cat("Событий Medium: ",medium_events_count_calc)
+```
+
+## Оценка результата
+
+В рамках практческой работы была исследована выгрузка из SIEM-системы
+доброй организации на факт комрометации системы.
+
+## Вывод
+
+В практической работе мы изучили структуру журнала системы Windows
+Active Directory, закреили практические навыки использования языка
+программирования R для обработки данных и знания основных функций
+обработки данных экосистемы tidyverse языка R.
