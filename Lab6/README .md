@@ -1,4 +1,5 @@
 # Исследование вредоносной активности в домене Windows
+
 belosludtzev.vanya@yandex.ru
 
 ## Цель работы
