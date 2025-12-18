@@ -116,7 +116,7 @@ sessionInfo()
 
 ![](img/12.png)
 Настроив параметры публичного доступа получим [ссылку на
-дашборд](https://datalens.ru/5os7m7q0ac18q)
+дашборд](https://datalens.ru/5pcpqpmyb67ap-dashbord-pr8)
 
 ## Оценка результата
 
